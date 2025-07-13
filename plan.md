@@ -1,262 +1,269 @@
 # Implementation Plan: Advanced Analytics & Metrics Dashboard
 
-### Jira Issue: **[ANALYTICS-101] Advanced Analytics & Metrics Dashboard**
+## Jira Issue: Advanced Analytics & Metrics Dashboard Implementation
 
 ---
 
-## **Feature Overview**
+### **Feature Overview**
 
-### **Business Objectives**
-The Advanced Analytics & Metrics Dashboard will provide stakeholders with actionable insights into user behavior, system performance, and API usage. It will enable data-driven decision-making by presenting aggregated data through interactive visualizations, real-time metrics, and exportable reports.
+#### **Business Objectives and Success Criteria**
+The Advanced Analytics & Metrics Dashboard aims to provide actionable insights into system performance, user behavior, and API usage. The feature will deliver:
+- Real-time and historical analytics for decision-making.
+- Role-based access control for secure data visibility.
+- Export functionality for external reporting.
+- Scalable and efficient data aggregation for large datasets.
 
-### **Success Criteria**
-1. A fully functional, responsive dashboard with interactive charts and real-time metrics.
-2. Scalable backend services for data aggregation and analytics.
-3. Role-based access control to ensure secure data access.
-4. Real-time metrics streaming via WebSockets.
-5. Data export functionality in CSV, JSON, and PDF formats.
+**Success Criteria:**
+- Fully functional and responsive analytics dashboard.
+- Accurate real-time metrics streaming with WebSocket integration.
+- Scalable backend capable of handling high data volumes.
+- Secure role-based access control for analytics views.
+- Comprehensive test coverage with unit, integration, and end-to-end tests.
 
-### **Target Users**
-1. **Superusers**: Full access to all analytics and metrics.
-2. **Regular Users**: Limited access to personal analytics and customizable widgets.
-3. **Product Managers**: Insights into user behavior and API usage trends.
+#### **Target Users and Use Cases**
+- **System Administrators**: Monitor system performance and API usage.
+- **Product Managers**: Analyze user behavior and engagement trends.
+- **Developers**: Debug API performance issues using endpoint metrics.
+- **Business Analysts**: Export data for external reporting and BI tools.
 
----
-
-## **Technical Architecture**
-
-### **Backend Architecture**
-- **Framework**: FastAPI
-- **Database**: PostgreSQL with SQLModel for ORM
-- **Real-time Communication**: WebSockets
-- **Data Aggregation**: Background tasks using Celery
-- **Caching**: Redis for frequently accessed metrics
-- **Security**: OAuth2-based authentication and role-based access control
-
-### **Frontend Architecture**
-- **Framework**: React with TypeScript
-- **State Management**: React Query for API data fetching and caching
-- **Visualization**: Chart.js and Recharts for interactive charts
-- **Real-time Updates**: WebSocket integration for live metrics
-- **UI Library**: Material-UI for consistent design
-
-### **Data Flow**
-1. **Data Collection**: Backend collects user activity, system metrics, and API usage data.
-2. **Data Aggregation**: Celery tasks process and aggregate data for analytics.
-3. **API Exposure**: FastAPI endpoints provide aggregated data to the frontend.
-4. **Frontend Rendering**: React components fetch data via APIs and render visualizations.
-5. **Real-time Updates**: WebSocket streams push live metrics to the frontend.
+#### **High-Level Technical Approach**
+The implementation will involve:
+1. **Backend Enhancements**: Add new database models, API endpoints, and services for analytics data collection, aggregation, and export.
+2. **Frontend Development**: Build a responsive React-based dashboard with interactive charts, real-time widgets, and export functionality.
+3. **Real-Time Integration**: Use WebSocket for live metrics updates.
+4. **Database Optimization**: Implement indexing, partitioning, and caching for efficient data queries.
+5. **Security**: Enforce role-based access control and secure sensitive data.
 
 ---
 
-## **Implementation Phases**
+### **Technical Architecture**
 
-### **Phase 1: Core Functionality**
-- Backend: Implement database models, API endpoints, and data aggregation services.
-- Frontend: Build the main dashboard layout with static charts and widgets.
-- Deliverables:
-  - Database schema for analytics data.
-  - Basic API endpoints for fetching analytics data.
-  - Static frontend components for the dashboard.
+#### **Component Breakdown and Responsibilities**
+1. **Backend Components**:
+   - **Database Models**: Define models for `AnalyticsEvent`, `SystemMetric`, `ApiUsageMetric`, and `DashboardWidget`.
+   - **API Endpoints**: Provide endpoints for fetching analytics data, managing widgets, and exporting data.
+   - **Services**: Implement business logic for data aggregation, real-time metrics, and export functionality.
+   - **Middleware**: Add analytics middleware for automatic event tracking.
 
-### **Phase 2: Advanced Features**
-- Backend: Add real-time metrics streaming and export functionality.
-- Frontend: Integrate WebSocket for live updates and implement data export UI.
-- Deliverables:
-  - WebSocket endpoint for real-time metrics.
-  - Data export functionality in CSV, JSON, and PDF formats.
-  - Fully interactive frontend components.
+2. **Frontend Components**:
+   - **Dashboard Layout**: Main page with a responsive grid for widgets.
+   - **Charts and Widgets**: Interactive components for visualizing data.
+   - **Export Interface**: UI for selecting export formats and date ranges.
+   - **Real-Time Metrics**: WebSocket-based widgets for live updates.
 
-### **Phase 3: Optimization and Polish**
-- Backend: Optimize database queries and implement caching.
-- Frontend: Enhance responsiveness and accessibility.
-- Deliverables:
-  - Optimized backend services with Redis caching.
-  - Fully responsive and accessible frontend.
+3. **Real-Time Integration**:
+   - WebSocket endpoint for streaming live metrics to the frontend.
+
+4. **Security**:
+   - Role-based access control for API endpoints and frontend views.
+   - Anonymization of sensitive user data.
+
+#### **Data Flow and State Management**
+- **Backend**: Data flows from the database to the API layer, where it is aggregated and served to the frontend.
+- **Frontend**: Use React Query for API data fetching and caching. State management for real-time metrics will be handled using WebSocket hooks.
+
+#### **API Design and Interfaces**
+- **Endpoints**:
+  - `GET /analytics/overview`: Fetch aggregated metrics for the dashboard.
+  - `GET /analytics/users`: Retrieve user behavior analytics.
+  - `GET /analytics/api-usage`: Fetch API usage statistics.
+  - `POST /analytics/events`: Track new analytics events.
+  - `GET /analytics/export/{format}`: Export analytics data in the specified format.
+  - `GET /dashboard/widgets`: Fetch user-specific widget configurations.
+  - `POST /dashboard/widgets`: Create or update widget configurations.
+  - `GET /ws/analytics`: WebSocket endpoint for real-time metrics.
+
+#### **Security Considerations**
+- **Authentication**: All endpoints require a valid JWT token.
+- **Authorization**: Role-based access to analytics data.
+- **Input Validation**: Sanitize all incoming data to prevent injection attacks.
+- **Data Privacy**: Anonymize user data in analytics events.
 
 ---
 
-## **Developer Implementation Guide**
+### **Implementation Phases**
 
-### **Backend Implementation**
+#### **Phase 1: Core Functionality**
+- Implement database models and migrations.
+- Develop backend API endpoints for analytics data retrieval and widget management.
+- Build the main dashboard layout and integrate with backend APIs.
+- Add role-based access control.
 
-#### **1. Database Models**
-**File**: `backend/app/models/analytics.py`
+**Deliverables**:
+- Database schema for analytics models.
+- Backend API endpoints for core analytics functionality.
+- Basic frontend dashboard with data fetching.
 
+#### **Phase 2: Advanced Features**
+- Add real-time metrics streaming via WebSocket.
+- Implement interactive charts and widgets.
+- Add data export functionality (CSV, JSON, PDF).
+- Optimize database queries with indexing and caching.
+
+**Deliverables**:
+- WebSocket endpoint for real-time metrics.
+- Interactive frontend components for charts and widgets.
+- Export functionality integrated into the dashboard.
+
+#### **Phase 3: Optimization and Polish**
+- Optimize performance for large datasets (partitioning, caching).
+- Conduct load testing and resolve bottlenecks.
+- Finalize UI/UX design for responsiveness and accessibility.
+- Comprehensive testing (unit, integration, end-to-end).
+
+**Deliverables**:
+- Optimized backend and frontend performance.
+- Fully tested and polished dashboard ready for deployment.
+
+---
+
+### 💻 **Developer Implementation Guide**
+
+#### **Step-by-Step Implementation Instructions**
+
+##### **Backend**
+1. **Database Models**:
+   - Add `AnalyticsEvent`, `SystemMetric`, `ApiUsageMetric`, and `DashboardWidget` models to `backend/app/models.py`.
+   - Create migration scripts using Alembic.
+
+2. **API Endpoints**:
+   - Define endpoints in `backend/app/api/api_v1/endpoints/analytics.py` and `dashboard.py`.
+   - Implement business logic in `backend/app/services/analytics_service.py`.
+
+3. **Middleware**:
+   - Add analytics middleware in `backend/app/middleware/analytics_middleware.py` for automatic event tracking.
+
+4. **Real-Time Metrics**:
+   - Implement WebSocket endpoint in `backend/app/api/api_v1/endpoints/realtime.py`.
+
+##### **Frontend**
+1. **Dashboard Layout**:
+   - Create `frontend/src/pages/AnalyticsDashboard.tsx` with a responsive grid layout.
+
+2. **Charts and Widgets**:
+   - Build reusable components in `frontend/src/components/analytics/`.
+
+3. **API Integration**:
+   - Use React Query to fetch data from backend APIs.
+
+4. **Real-Time Metrics**:
+   - Implement WebSocket hooks in `frontend/src/hooks/useWebSocket.ts`.
+
+5. **Export Functionality**:
+   - Add export UI in `frontend/src/components/ExportButton.tsx`.
+
+##### **Testing**
+1. **Backend Tests**:
+   - Write unit tests for services and endpoints in `backend/tests/test_analytics.py`.
+
+2. **Frontend Tests**:
+   - Use React Testing Library for component tests.
+   - Write end-to-end tests with Playwright.
+
+---
+
+### **Technical Setup & Configuration**
+
+#### **Environment Setup**
+- Backend:
+  - Install dependencies: `pip install -r requirements.txt`.
+  - Run migrations: `alembic upgrade head`.
+- Frontend:
+  - Install dependencies: `npm install`.
+  - Start development server: `npm start`.
+
+#### **Database Configuration**
+- Add tables and indexes using Alembic migrations.
+- Configure Redis for caching.
+
+#### **WebSocket Setup**
+- Use `uvicorn` with WebSocket support.
+
+---
+
+### 📝 **Code Examples & Templates**
+
+#### **Database Model Example**
 ```python
-from sqlmodel import SQLModel, Field, Column, JSON
-import uuid
-from datetime import datetime
-
 class AnalyticsEvent(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    event_type: str = Field(max_length=100)
-    event_category: str = Field(max_length=100)
+    event_type: str
+    event_category: str
     event_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
     user_id: uuid.UUID | None = Field(foreign_key="user.id", nullable=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class SystemMetric(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    metric_name: str = Field(max_length=100)
-    metric_value: float
-    metric_unit: str = Field(max_length=50)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-class ApiUsageMetric(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    endpoint: str = Field(max_length=255)
-    method: str = Field(max_length=10)
-    status_code: int
-    response_time_ms: float
-    user_id: uuid.UUID | None = Field(foreign_key="user.id", nullable=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
 ```
 
-#### **2. API Endpoints**
-**File**: `backend/app/api/api_v1/endpoints/analytics.py`
-
+#### **API Endpoint Example**
 ```python
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.models.analytics import AnalyticsEvent, SystemMetric, ApiUsageMetric
-from app.schemas.analytics import AnalyticsOverview
-from app.core.deps import get_db
-
-router = APIRouter()
-
 @router.get("/analytics/overview", response_model=AnalyticsOverview)
-def get_analytics_overview(db: Session = Depends(get_db)):
-    # Fetch and aggregate analytics data
-    return {"total_users": 100, "active_users": 50, "api_requests": 5000}
+def get_analytics_overview(
+    start_date: datetime, end_date: datetime, db: Session = Depends(get_db)
+):
+    return analytics_service.get_overview(start_date, end_date, db)
 ```
 
-#### **3. Real-time Metrics**
-**File**: `backend/app/api/api_v1/endpoints/realtime.py`
+#### **Frontend Component Example**
+```tsx
+const AnalyticsDashboard: React.FC = () => {
+  const { data, isLoading } = useQuery('analyticsOverview', fetchAnalyticsOverview);
 
-```python
-from fastapi import WebSocket, WebSocketDisconnect
-from app.core.realtime_manager import ConnectionManager
+  if (isLoading) return <Spinner />;
 
-manager = ConnectionManager()
-
-@router.websocket("/ws/analytics")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await manager.broadcast(f"Real-time update: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+  return (
+    <div className="dashboard">
+      <OverviewCards data={data.overview} />
+      <Charts data={data.charts} />
+    </div>
+  );
+};
 ```
 
 ---
 
-### **Frontend Implementation**
+### 🧪 **Testing Strategy**
 
-#### **1. Main Dashboard Page**
-**File**: `frontend/src/pages/AnalyticsDashboardPage.tsx`
+#### **Unit Tests**
+- Test individual services and API endpoints.
+- Mock database and external dependencies.
 
-```tsx
-import React from "react";
-import { OverviewCards, InteractiveCharts, RealTimeMetrics } from "../components";
+#### **Integration Tests**
+- Test API endpoints with real database interactions.
 
-const AnalyticsDashboardPage: React.FC = () => {
-  return (
-    <div>
-      <OverviewCards />
-      <InteractiveCharts />
-      <RealTimeMetrics />
-    </div>
-  );
-};
-
-export default AnalyticsDashboardPage;
-```
-
-#### **2. Real-time Metrics Widget**
-**File**: `frontend/src/components/RealTimeMetrics.tsx`
-
-```tsx
-import React, { useEffect, useState } from "react";
-
-const RealTimeMetrics: React.FC = () => {
-  const [metrics, setMetrics] = useState<string[]>([]);
-
-  useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8000/ws/analytics");
-    ws.onmessage = (event) => {
-      setMetrics((prev) => [...prev, event.data]);
-    };
-    return () => ws.close();
-  }, []);
-
-  return (
-    <div>
-      <h3>Real-time Metrics</h3>
-      <ul>
-        {metrics.map((metric, index) => (
-          <li key={index}>{metric}</li>
-        ))}
-      </ul>
-    </div>
-  );
-};
-
-export default RealTimeMetrics;
-```
+#### **End-to-End Tests**
+- Simulate user interactions with the dashboard.
+- Verify real-time updates via WebSocket.
 
 ---
 
-### **Testing Strategy**
+### 📈 **Quality Assurance**
 
-#### **Backend Tests**
-**File**: `backend/tests/test_analytics.py`
+#### **Code Quality Standards**
+- Follow PEP 8 for Python and ESLint rules for JavaScript/TypeScript.
 
-```python
-def test_get_analytics_overview(client, db):
-    response = client.get("/analytics/overview")
-    assert response.status_code == 200
-    assert "total_users" in response.json()
-```
+#### **Performance Benchmarks**
+- Query response time < 200ms for most operations.
+- WebSocket latency < 100ms.
 
-#### **Frontend Tests**
-**File**: `frontend/src/tests/AnalyticsDashboardPage.test.tsx`
-
-```tsx
-import { render, screen } from "@testing-library/react";
-import AnalyticsDashboardPage from "../pages/AnalyticsDashboardPage";
-
-test("renders Analytics Dashboard Page", () => {
-  render(<AnalyticsDashboardPage />);
-  expect(screen.getByText(/Real-time Metrics/i)).toBeInTheDocument();
-});
-```
+#### **Security Requirements**
+- Ensure all endpoints are authenticated and authorized.
 
 ---
 
 ### **Deployment Strategy**
 
-1. **Database Migration**:
-   - Create migration script for new tables: `alembic revision --autogenerate -m "Add analytics tables"`
-   - Apply migrations: `alembic upgrade head`
+#### **Build and Deployment Pipeline**
+1. Build Docker images for backend and frontend.
+2. Deploy to staging environment for testing.
+3. Roll out to production with monitoring enabled.
 
-2. **Backend Deployment**:
-   - Deploy FastAPI services with Gunicorn and Uvicorn workers.
-   - Configure Redis and Celery for background tasks.
-
-3. **Frontend Deployment**:
-   - Build React app: `npm run build`
-   - Deploy to CDN or containerized environment.
-
-4. **Monitoring**:
-   - Set up Prometheus and Grafana for system metrics.
-   - Configure Sentry for error tracking.
+#### **Monitoring**
+- Use Prometheus and Grafana for system metrics.
+- Set up alerts for high error rates or performance degradation.
 
 ---
 
-### **MACHINE_READABLE_OUTLINE**
+###**MACHINE_READABLE_OUTLINE**
 
 ```json
 {
@@ -267,34 +274,35 @@ test("renders Analytics Dashboard Page", () => {
       "description": "API endpoints for analytics operations"
     },
     {
+      "path": "backend/app/services/analytics_service.py",
+      "type": "service-class",
+      "description": "Business logic service for analytics"
+    },
+    {
       "path": "backend/app/models/analytics.py",
       "type": "sqlmodel-model",
       "description": "Database models for analytics"
     },
     {
-      "path": "frontend/src/pages/AnalyticsDashboardPage.tsx",
+      "path": "frontend/src/pages/AnalyticsDashboard.tsx",
       "type": "react-component",
-      "description": "Main dashboard page for analytics"
+      "description": "Main page component for analytics dashboard"
     },
     {
-      "path": "frontend/src/components/RealTimeMetrics.tsx",
+      "path": "frontend/src/components/analytics/OverviewCards.tsx",
       "type": "react-component",
-      "description": "Real-time metrics widget"
+      "description": "Overview cards component for dashboard"
     },
     {
       "path": "backend/tests/test_analytics.py",
       "type": "pytest-test",
-      "description": "Backend tests for analytics endpoints"
+      "description": "Backend tests for analytics"
     },
     {
-      "path": "frontend/src/tests/AnalyticsDashboardPage.test.tsx",
-      "type": "jest-test",
+      "path": "frontend/src/tests/AnalyticsDashboard.test.tsx",
+      "type": "playwright-e2e",
       "description": "Frontend tests for analytics dashboard"
     }
   ]
 }
 ```
-
----
-
-This plan provides a detailed, actionable roadmap for implementing the Advanced Analytics & Metrics Dashboard feature. It includes backend, frontend, testing, and deployment strategies, ensuring enterprise-grade quality and scalability.
