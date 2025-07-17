@@ -1,83 +1,65 @@
 import pytest
 import httpx
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, create_engine, Session
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from sqlmodel import SQLModel, Session, create_engine
-from pydantic import BaseModel
 
-# Define a Pydantic model for CSV metadata
-class CSVMetadata(BaseModel):
-    upload_id: str
-    file_name: str
-    file_size: int
-    mime_type: str
-    preview_data: list
+# Assuming the FastAPI app is defined in a module named 'main'
+from main import app, get_async_session
 
-# Define a FastAPI app
-app = FastAPI()
+# Create a TestClient for the FastAPI app
+client = TestClient(app)
 
-# Define a SQLModel for the Item table
-class Item(SQLModel, table=True):
-    id: int
-    name: str
-    description: str
+@pytest.fixture(scope="module")
+def test_app():
+    """
+    Fixture to provide a test client for the FastAPI app.
+    """
+    return client
 
-# Define a test client using httpx
-@pytest.fixture
-async def test_client():
-    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
-        yield client
+@pytest.fixture(scope="module")
+def async_session() -> AsyncSession:
+    """
+    Fixture to provide an asynchronous session for database operations.
+    """
+    engine = create_engine("sqlite+aiosqlite:///:memory:", echo=True, future=True)
+    SQLModel.metadata.create_all(engine)
+    session = AsyncSession(engine)
+    yield session
+    await session.close()
 
-# Test for CSV upload
-@pytest.mark.asyncio
-async def test_csv_upload(test_client):
+
+def test_csv_upload(test_app):
     """
     Test the CSV upload functionality.
     """
     # Prepare a sample CSV file
-    csv_content = "name,description\nItem1,Description1\nItem2,Description2"
+    csv_content = """column1,column2,column3\nvalue1,value2,value3\nvalue4,value5,value6"""
     files = {'file': ('test.csv', csv_content, 'text/csv')}
 
-    # Perform the upload
-    response = await test_client.post("/upload-csv", files=files)
+    # Perform the upload request
+    response = test_app.post("/upload-csv", files=files)
 
     # Assert the response status code
     assert response.status_code == 200
 
-    # Assert the response content
-    data = response.json()
-    assert 'upload_id' in data
-    assert data['file_name'] == 'test.csv'
-    assert data['mime_type'] == 'text/csv'
-    assert len(data['preview_data']) == 2
+    # Assert the response contains the expected keys
+    json_response = response.json()
+    assert 'upload_id' in json_response
+    assert 'file_metadata' in json_response
+    assert 'preview_data' in json_response
 
-# Define the CSV upload endpoint
-@app.post("/upload-csv")
-async def upload_csv(file: UploadFile = File(...)):
-    """
-    Endpoint to handle CSV file uploads.
-    """
-    # Validate file size and MIME type
-    if file.content_type != 'text/csv':
-        raise HTTPException(status_code=400, detail="Invalid file type")
-    if file.spool_max_size > 1024 * 1024 * 5:  # 5 MB limit
-        raise HTTPException(status_code=400, detail="File too large")
+    # Validate the file metadata
+    file_metadata = json_response['file_metadata']
+    assert file_metadata['filename'] == 'test.csv'
+    assert file_metadata['size'] == len(csv_content)
 
-    # Read CSV file using pandas
-    try:
-        df = pd.read_csv(file.file)
-    except pd.errors.ParserError:
-        raise HTTPException(status_code=400, detail="Malformed CSV file")
+    # Validate the preview data
+    preview_data = json_response['preview_data']
+    assert len(preview_data) == 2  # Two rows of data
+    assert preview_data[0] == ['value1', 'value2', 'value3']
+    assert preview_data[1] == ['value4', 'value5', 'value6']
 
-    # Generate upload_id and preview data
-    upload_id = "unique-upload-id"  # This should be generated dynamically
-    preview_data = df.head().to_dict(orient='records')
-
-    # Return metadata
-    return CSVMetadata(
-        upload_id=upload_id,
-        file_name=file.filename,
-        file_size=file.spool_max_size,
-        mime_type=file.content_type,
-        preview_data=preview_data
-    ).dict()
+    # Additional checks can be added for file size and type restrictions
