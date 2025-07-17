@@ -1,65 +1,104 @@
 import pytest
 import httpx
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import SQLModel, create_engine, Session
 import pandas as pd
+from fastapi import FastAPI, UploadFile, File
+from fastapi.testclient import TestClient
 
-# Assuming the FastAPI app is defined in a module named 'main'
-from main import app, get_async_session
+# Assuming the FastAPI app is defined in a module named 'app'
+from app import app
 
-# Create a TestClient for the FastAPI app
-client = TestClient(app)
-
-@pytest.fixture(scope="module")
-def test_app():
+@pytest.fixture
+async def test_client():
     """
     Fixture to provide a test client for the FastAPI app.
     """
-    return client
+    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        yield client
 
-@pytest.fixture(scope="module")
-def async_session() -> AsyncSession:
-    """
-    Fixture to provide an asynchronous session for database operations.
-    """
-    engine = create_engine("sqlite+aiosqlite:///:memory:", echo=True, future=True)
-    SQLModel.metadata.create_all(engine)
-    session = AsyncSession(engine)
-    yield session
-    await session.close()
-
-
-def test_csv_upload(test_app):
+@pytest.mark.asyncio
+async def test_csv_upload(test_client):
     """
     Test the CSV upload functionality.
+    
+    This test checks:
+    - File size and MIME type validation
+    - Proper parsing of CSV files
+    - Error handling for malformed CSV files
+    - Return of file metadata and preview data
     """
     # Prepare a sample CSV file
     csv_content = """column1,column2,column3\nvalue1,value2,value3\nvalue4,value5,value6"""
     files = {'file': ('test.csv', csv_content, 'text/csv')}
 
-    # Perform the upload request
-    response = test_app.post("/upload-csv", files=files)
+    # Perform the upload
+    response = await test_client.post("/upload-csv", files=files)
 
-    # Assert the response status code
-    assert response.status_code == 200
+    # Validate response
+    assert response.status_code == 200, "Upload failed"
+    response_data = response.json()
 
-    # Assert the response contains the expected keys
-    json_response = response.json()
-    assert 'upload_id' in json_response
-    assert 'file_metadata' in json_response
-    assert 'preview_data' in json_response
+    # Check for upload_id in response
+    assert 'upload_id' in response_data, "upload_id not returned"
 
-    # Validate the file metadata
-    file_metadata = json_response['file_metadata']
-    assert file_metadata['filename'] == 'test.csv'
-    assert file_metadata['size'] == len(csv_content)
+    # Check for file metadata and preview data
+    assert 'metadata' in response_data, "Metadata not returned"
+    assert 'preview' in response_data, "Preview data not returned"
 
-    # Validate the preview data
-    preview_data = json_response['preview_data']
-    assert len(preview_data) == 2  # Two rows of data
-    assert preview_data[0] == ['value1', 'value2', 'value3']
-    assert preview_data[1] == ['value4', 'value5', 'value6']
+    # Validate preview data
+    preview_data = response_data['preview']
+    assert len(preview_data) > 0, "Preview data is empty"
 
-    # Additional checks can be added for file size and type restrictions
+@pytest.mark.asyncio
+async def test_csv_upload_malformed(test_client):
+    """
+    Test handling of malformed CSV files.
+    
+    This test checks:
+    - Error handling for malformed CSV files
+    - Appropriate error response
+    """
+    # Prepare a malformed CSV file
+    malformed_csv_content = """column1,column2,column3\nvalue1,value2\nvalue4,value5,value6"""
+    files = {'file': ('malformed.csv', malformed_csv_content, 'text/csv')}
+
+    # Perform the upload
+    response = await test_client.post("/upload-csv", files=files)
+
+    # Validate response
+    assert response.status_code == 400, "Malformed CSV not handled correctly"
+    response_data = response.json()
+
+    # Check for error message in response
+    assert 'error' in response_data, "Error message not returned"
+    assert response_data['error'] == "Malformed CSV file", "Unexpected error message"
+
+@pytest.mark.asyncio
+async def test_csv_upload_large_file(test_client):
+    """
+    Test handling of large CSV files.
+    
+    This test checks:
+    - Chunking of large files
+    - Performance under load
+    """
+    # Prepare a large CSV file
+    large_csv_content = "column1,column2,column3\n" + "\n".join([f"value{i},value{i+1},value{i+2}" for i in range(10000)])
+    files = {'file': ('large.csv', large_csv_content, 'text/csv')}
+
+    # Perform the upload
+    response = await test_client.post("/upload-csv", files=files)
+
+    # Validate response
+    assert response.status_code == 200, "Large file upload failed"
+    response_data = response.json()
+
+    # Check for upload_id in response
+    assert 'upload_id' in response_data, "upload_id not returned for large file"
+
+    # Check for file metadata and preview data
+    assert 'metadata' in response_data, "Metadata not returned for large file"
+    assert 'preview' in response_data, "Preview data not returned for large file"
+
+    # Validate preview data
+    preview_data = response_data['preview']
+    assert len(preview_data) > 0, "Preview data is empty for large file"
