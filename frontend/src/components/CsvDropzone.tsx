@@ -4,83 +4,72 @@ import { useMutation } from '@tanstack/react-query';
 import { Table } from '@tanstack/react-table';
 import { parse } from 'papaparse';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { saveDataToTable, calculateStatistics } from '../api';
+import { Button } from '../components/Button';
 
 interface CsvDropzoneProps {
-  onSaveToggle: (data: any) => void;
+  onSaveToggle: (save: boolean) => void;
 }
 
 /**
- * CsvDropzone component allows users to drag and drop CSV files for processing.
- * It parses the CSV data, calculates descriptive statistics, and optionally saves the data.
- *
- * @param {CsvDropzoneProps} props - The properties for the component.
- * @returns {JSX.Element} The rendered component.
+ * CsvDropzone component allows users to upload CSV files via drag-and-drop.
+ * It parses the CSV, calculates statistics, and optionally saves data to a table.
  */
 const CsvDropzone: React.FC<CsvDropzoneProps> = ({ onSaveToggle }) => {
   const [csvData, setCsvData] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState<Record<string, any>>({});
+  const [saveToggle, setSaveToggle] = useState<boolean>(false);
   const navigate = useNavigate();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       const reader = new FileReader();
-
-      reader.onabort = () => toast.error('File reading was aborted');
-      reader.onerror = () => toast.error('File reading has failed');
+      reader.onabort = () => console.log('file reading was aborted');
+      reader.onerror = () => console.log('file reading has failed');
       reader.onload = () => {
         const text = reader.result as string;
         const parsedData = parse(text, { header: true }).data;
         setCsvData(parsedData);
-        toast.success('File successfully uploaded');
+        const stats = calculateStatistics(parsedData);
+        setStatistics(stats);
       };
-
       reader.readAsText(file);
     });
   }, []);
 
-  const mutation = useMutation(
-    (data: any) => {
-      // Replace with actual API call
-      return fetch('/api_v1/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+  const { mutate: saveRows } = useMutation(saveDataToTable, {
+    onSuccess: () => {
+      console.log('Data saved successfully');
+      navigate('/import');
     },
-    {
-      onSuccess: () => {
-        toast.success('Data successfully saved');
-        navigate('/');
-      },
-      onError: () => {
-        toast.error('Failed to save data');
-      },
-    }
-  );
-
-  const handleSaveToggle = () => {
-    mutation.mutate(csvData);
-    onSaveToggle(csvData);
-  };
-
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop,
-    accept: '.csv',
+    onError: (error) => {
+      console.error('Error saving data:', error);
+    },
   });
 
+  const handleSaveToggle = () => {
+    setSaveToggle(!saveToggle);
+    onSaveToggle(saveToggle);
+  };
+
+  const { getRootProps, getInputProps } = useDropzone({ onDrop });
+
   return (
-    <div {...getRootProps()} className="border-dashed border-2 border-gray-400 p-6 rounded-md">
+    <div className="p-4 border-dashed border-2 border-gray-400" {...getRootProps()}>
       <input {...getInputProps()} />
-      <p>Drag 'n' drop a CSV file here, or click to select one</p>
-      <button
-        type="button"
-        onClick={handleSaveToggle}
-        className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-      >
-        Save Data
-      </button>
+      <p>Drag 'n' drop some files here, or click to select files</p>
+      <Button onClick={handleSaveToggle}>
+        {saveToggle ? 'Disable Save' : 'Enable Save'}
+      </Button>
+      {csvData.length > 0 && (
+        <div>
+          <h3>CSV Data Preview</h3>
+          <Table data={csvData} columns={Object.keys(csvData[0]).map(key => ({ accessor: key, Header: key }))} />
+          <h3>Statistics</h3>
+          <pre>{JSON.stringify(statistics, null, 2)}</pre>
+          {saveToggle && <Button onClick={() => saveRows(csvData)}>Save Data</Button>}
+        </div>
+      )}
     </div>
   );
 };
