@@ -1,78 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useQuery } from 'react-query';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import 'chart.js/auto';
 import { saveAs } from 'file-saver';
-import { fetchData, saveData } from '../api/dataService';
+import { fetchData, saveData } from '../api';
 import { calculateStatistics } from '../utils/statistics';
-import { TailwindCSS } from 'tailwindcss';
+import { ErrorBoundary } from './ErrorBoundary';
+import './InsightsCards.css'; // Assuming Tailwind CSS is used
 
-interface InsightsCardProps {
-  title: string;
-  dataKey: string;
+interface InsightsCardsProps {
+  itemId?: string;
 }
 
 /**
- * InsightsCards component displays KPI cards with data statistics and charts.
- * It supports drag-and-drop functionality for data upload and allows users to select chart types.
- *
- * @component
- * @example
- * return (
- *   <InsightsCards title="Sales Data" dataKey="sales" />
- * )
+ * InsightsCards component provides a UI for displaying data insights
+ * through various charts and statistics. It supports drag-and-drop
+ * CSV file upload, data visualization, and optional data saving.
  */
-const InsightsCards: React.FC<InsightsCardProps> = ({ title, dataKey }) => {
-  const [data, setData] = useState<any[]>([]);
-  const [chartType, setChartType] = useState<string>('bar');
-  const [statistics, setStatistics] = useState<any>({});
+const InsightsCards: React.FC<InsightsCardsProps> = ({ itemId }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
+  const [columns, setColumns] = useState<string[]>([]);
+
+  // Fetch data using React Query
+  const { data, error, isLoading } = useQuery('fetchData', () => fetchData(itemId), {
+    enabled: !!itemId,
+  });
+
+  // Handle file drop
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      setSelectedFile(acceptedFiles[0]);
+    }
+  }, []);
 
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      const file = acceptedFiles[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        const csvData = reader.result;
-        // Assuming CSV parsing logic is implemented here
-        const parsedData = parseCSVData(csvData);
-        setData(parsedData);
-        setStatistics(calculateStatistics(parsedData));
-      };
-      reader.readAsText(file);
-    },
+    onDrop,
+    accept: '.csv',
   });
 
-  const { data: fetchedData, error, isLoading } = useQuery(['fetchData', dataKey], () => fetchData(dataKey), {
-    onSuccess: (data) => {
-      setData(data);
-      setStatistics(calculateStatistics(data));
-    },
-  });
-
-  const handleSave = () => {
-    saveData(dataKey, data).then(() => {
-      alert('Data saved successfully!');
-    }).catch((error) => {
-      console.error('Error saving data:', error);
-      alert('Failed to save data.');
-    });
+  // Handle data saving
+  const handleSaveData = async () => {
+    if (data) {
+      try {
+        await saveData(data);
+        alert('Data saved successfully!');
+      } catch (err) {
+        console.error('Error saving data:', err);
+        alert('Failed to save data.');
+      }
+    }
   };
 
-  const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setChartType(event.target.value);
-  };
-
+  // Render chart based on selected type
   const renderChart = () => {
+    if (!data) return null;
     const chartData = {
-      labels: data.map(item => item.label),
-      datasets: [{
-        label: title,
-        data: data.map(item => item.value),
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1,
-      }],
+      labels: columns,
+      datasets: [
+        {
+          label: 'Dataset 1',
+          data: columns.map(column => data[column]),
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1,
+        },
+      ],
     };
 
     switch (chartType) {
@@ -87,31 +81,30 @@ const InsightsCards: React.FC<InsightsCardProps> = ({ title, dataKey }) => {
     }
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading data</div>;
-
   return (
-    <div className="p-4 bg-white shadow-md rounded-lg">
-      <h2 className="text-xl font-bold mb-4">{title}</h2>
-      <div {...getRootProps()} className="border-dashed border-2 border-gray-300 p-4 mb-4">
-        <input {...getInputProps()} />
-        <p>Drag 'n' drop some files here, or click to select files</p>
+    <ErrorBoundary>
+      <div className="insights-cards">
+        <div {...getRootProps()} className="dropzone">
+          <input {...getInputProps()} />
+          <p>Drag 'n' drop a CSV file here, or click to select one</p>
+        </div>
+        {isLoading && <p>Loading data...</p>}
+        {error && <p>Error loading data: {error.message}</p>}
+        {data && (
+          <div>
+            <div className="chart-controls">
+              <select value={chartType} onChange={(e) => setChartType(e.target.value as 'bar' | 'line' | 'pie')}>
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="pie">Pie Chart</option>
+              </select>
+              <button onClick={handleSaveData}>Save Data</button>
+            </div>
+            {renderChart()}
+          </div>
+        )}
       </div>
-      <div className="mb-4">
-        <label htmlFor="chartType" className="block text-sm font-medium text-gray-700">Select Chart Type:</label>
-        <select id="chartType" name="chartType" value={chartType} onChange={handleChartTypeChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-          <option value="bar">Bar</option>
-          <option value="line">Line</option>
-          <option value="pie">Pie</option>
-        </select>
-      </div>
-      <div className="mb-4">
-        {renderChart()}
-      </div>
-      <button onClick={handleSave} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Save Data
-      </button>
-    </div>
+    </ErrorBoundary>
   );
 };
 
