@@ -1,112 +1,84 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { BarChart, LineChart, Histogram } from 'recharts';
 import { useQuery } from 'react-query';
-import { fetchData, saveData } from '../api';
+import { fetchChartData, saveDataToTable } from '../api';
 import { calculateStatistics } from '../utils/statistics';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-import 'tailwindcss/tailwind.css';
+import { ChartTypeSelector } from './ChartTypeSelector';
+import { ColumnSelector } from './ColumnSelector';
+import { SaveToggle } from './SaveToggle';
+import { UploadCSV } from './UploadCSV';
+import { GetInsights } from './GetInsights';
+import { SaveRows } from './SaveRows';
+import { ImportRoute } from './ImportRoute';
 
 interface QuickChartPanelProps {
-  itemId?: string;
+  initialData?: any[];
 }
 
 /**
- * QuickChartPanel component allows users to upload data files, select chart types, and visualize data.
- * It supports drag-and-drop functionality and provides options to save data.
+ * QuickChartPanel component allows users to upload CSV files, select chart types and columns,
+ * and generate dynamic charts using Recharts. It also provides options to save data to an existing table.
  */
-const QuickChartPanel: React.FC<QuickChartPanelProps> = ({ itemId }) => {
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'histogram'>('bar');
-  const [data, setData] = useState<any[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
+const QuickChartPanel: React.FC<QuickChartPanelProps> = ({ initialData = [] }) => {
+  const [data, setData] = useState<any[]>(initialData);
+  const [chartType, setChartType] = useState<string>('bar');
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [saveData, setSaveData] = useState<boolean>(false);
 
-  const onDrop = (acceptedFiles: File[]) => {
-    // Handle file upload and parse data
-    acceptedFiles.forEach(file => {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    // Handle file upload and parse CSV
+    acceptedFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const fileData = reader.result;
-        // Parse CSV data and update state
-        const parsedData = parseCSV(fileData);
+        const csvData = reader.result;
+        // Parse CSV and update state
+        // Assume parseCSV is a utility function to parse CSV data
+        const parsedData = parseCSV(csvData);
         setData(parsedData);
-        setColumns(Object.keys(parsedData[0]));
+      };
+      reader.onerror = () => {
+        console.error('File reading has failed');
       };
       reader.readAsText(file);
     });
-  };
+  }, []);
 
-  const { data: fetchedData, error } = useQuery('fetchData', () => fetchData(itemId), {
-    enabled: !!itemId,
+  const { data: chartData, error } = useQuery(['chartData', data], () => fetchChartData(data), {
+    enabled: data.length > 0,
   });
 
-  useEffect(() => {
-    if (fetchedData) {
-      setData(fetchedData);
-      setColumns(Object.keys(fetchedData[0]));
-    }
-  }, [fetchedData]);
-
-  const handleSave = async () => {
-    try {
-      await saveData(data);
-      alert('Data saved successfully');
-    } catch (error) {
-      console.error('Error saving data:', error);
-      alert('Failed to save data');
+  const handleSaveData = () => {
+    if (saveData) {
+      saveDataToTable(data).catch((err) => console.error('Error saving data:', err));
     }
   };
 
   const renderChart = () => {
     switch (chartType) {
       case 'bar':
-        return <BarChart data={data} />;
+        return <BarChart data={chartData} />;
       case 'line':
-        return <LineChart data={data} />;
+        return <LineChart data={chartData} />;
       case 'histogram':
-        return <Histogram data={data} />;
+        return <Histogram data={chartData} />;
       default:
         return null;
     }
   };
 
   return (
-    <ErrorBoundary>
-      <div className="p-4">
-        <div {...useDropzone({ onDrop })} className="border-dashed border-2 p-4">
-          <p>Drag and drop your CSV files here</p>
-        </div>
-        <div className="mt-4">
-          <label htmlFor="chartType">Select Chart Type:</label>
-          <select
-            id="chartType"
-            value={chartType}
-            onChange={(e) => setChartType(e.target.value as 'bar' | 'line' | 'histogram')}
-            className="ml-2 p-2 border rounded"
-          >
-            <option value="bar">Bar Chart</option>
-            <option value="line">Line Chart</option>
-            <option value="histogram">Histogram</option>
-          </select>
-        </div>
-        <div className="mt-4">
-          {renderChart()}
-        </div>
-        <button onClick={handleSave} className="mt-4 p-2 bg-blue-500 text-white rounded">
-          Save Data
-        </button>
-      </div>
-    </ErrorBoundary>
+    <div className="quick-chart-panel">
+      <UploadCSV onDrop={onDrop} />
+      <ChartTypeSelector chartType={chartType} setChartType={setChartType} />
+      <ColumnSelector columns={Object.keys(data[0] || {})} selectedColumns={selectedColumns} setSelectedColumns={setSelectedColumns} />
+      <SaveToggle saveData={saveData} setSaveData={setSaveData} />
+      <GetInsights data={data} />
+      <SaveRows data={data} onSave={handleSaveData} />
+      <ImportRoute />
+      {error ? <div className="error">Error loading chart data</div> : renderChart()}
+    </div>
   );
-};
-
-/**
- * Parses CSV data into a JSON object.
- * @param csvData - The CSV data as a string.
- * @returns Parsed data as an array of objects.
- */
-const parseCSV = (csvData: string): any[] => {
-  // Implement CSV parsing logic here
-  return [];
 };
 
 export default QuickChartPanel;
