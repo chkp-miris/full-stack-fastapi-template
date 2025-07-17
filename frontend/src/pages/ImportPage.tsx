@@ -2,87 +2,95 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useMutation } from 'react-query';
 import { useNavigate } from 'react-router-dom';
-import { calculateStatistics } from '../utils/csvUtils';
-import { saveDataToItemTable } from '../api/itemApi';
-
-interface ImportPageProps {}
+import { saveDataToItemTable, getInsightsFromCSV } from '../api';
+import { CSVReader } from 'react-papaparse';
+import { toast } from 'react-toastify';
 
 /**
- * ImportPage component allows users to import CSV files, view descriptive statistics,
- * and optionally save the data to an existing Item table.
+ * ImportPage component
  * 
- * Features:
- * - Drag-and-drop CSV file upload
- * - Display of descriptive statistics
- * - Option to save data to Item table
+ * This component provides functionality to import CSV files, calculate descriptive statistics,
+ * and optionally save data to an existing Item table. It includes drag-and-drop functionality
+ * using react-dropzone and integrates with the backend API.
  */
-const ImportPage: React.FC<ImportPageProps> = () => {
-  const [csvData, setCsvData] = useState<string | null>(null);
-  const [statistics, setStatistics] = useState<Record<string, any> | null>(null);
+const ImportPage: React.FC = () => {
+  const [csvData, setCsvData] = useState<any[]>([]);
   const [saveToggle, setSaveToggle] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    const reader = new FileReader();
-
-    reader.onload = (event: ProgressEvent<FileReader>) => {
-      const text = event.target?.result as string;
-      setCsvData(text);
-      const stats = calculateStatistics(text);
-      setStatistics(stats);
-    };
-
-    reader.onerror = () => {
-      console.error('Error reading file');
-      alert('Failed to read file. Please try again.');
-    };
-
-    reader.readAsText(file);
-  }, []);
-
-  const { mutate: saveData, isLoading, isError } = useMutation(saveDataToItemTable, {
+  // Mutation for saving data
+  const saveMutation = useMutation(saveDataToItemTable, {
     onSuccess: () => {
-      alert('Data saved successfully!');
+      toast.success('Data saved successfully!');
     },
-    onError: () => {
-      alert('Failed to save data. Please try again later.');
-    }
+    onError: (error: any) => {
+      toast.error(`Failed to save data: ${error.message}`);
+    },
   });
 
-  const handleSaveToggle = () => {
-    setSaveToggle(!saveToggle);
+  // Function to handle file drop
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    acceptedFiles.forEach((file) => {
+      const reader = new FileReader();
+
+      reader.onabort = () => toast.error('File reading was aborted');
+      reader.onerror = () => toast.error('File reading has failed');
+      reader.onload = () => {
+        const binaryStr = reader.result;
+        if (typeof binaryStr === 'string') {
+          // Parse CSV data
+          const parsedData = CSVReader.parse(binaryStr);
+          setCsvData(parsedData.data);
+          toast.success('CSV file loaded successfully!');
+        }
+      };
+
+      reader.readAsBinaryString(file);
+    });
+  }, []);
+
+  // Function to get insights from CSV data
+  const handleGetInsights = async () => {
+    try {
+      const insights = await getInsightsFromCSV(csvData);
+      toast.success('Insights calculated successfully!');
+      console.log(insights);
+    } catch (error) {
+      toast.error(`Failed to calculate insights: ${error.message}`);
+    }
   };
 
-  const handleSaveData = () => {
-    if (csvData) {
-      saveData(csvData);
+  // Function to save rows
+  const handleSaveRows = () => {
+    if (saveToggle) {
+      saveMutation.mutate(csvData);
     } else {
-      alert('No data to save. Please upload a CSV file first.');
+      toast.info('Save toggle is off. Data will not be saved.');
     }
   };
 
   return (
     <div className="import-page">
-      <h1>Import CSV</h1>
+      <h1 className="text-xl font-bold">Import CSV</h1>
       <div className="dropzone">
         <useDropzone onDrop={onDrop} />
       </div>
-      {statistics && (
-        <div className="statistics">
-          <h2>Descriptive Statistics</h2>
-          <pre>{JSON.stringify(statistics, null, 2)}</pre>
-        </div>
-      )}
+      <button onClick={handleGetInsights} className="btn btn-primary">
+        Get Insights
+      </button>
       <div className="save-toggle">
         <label>
-          <input type="checkbox" checked={saveToggle} onChange={handleSaveToggle} /> Save to Item Table
+          <input
+            type="checkbox"
+            checked={saveToggle}
+            onChange={() => setSaveToggle(!saveToggle)}
+          />
+          Save to Item Table
         </label>
       </div>
-      <button onClick={handleSaveData} disabled={isLoading}>
-        {isLoading ? 'Saving...' : 'Save Data'}
+      <button onClick={handleSaveRows} className="btn btn-secondary">
+        Save Rows
       </button>
-      {isError && <p className="error">An error occurred while saving data.</p>}
     </div>
   );
 };
