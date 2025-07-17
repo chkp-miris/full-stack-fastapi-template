@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useTable, usePagination } from '@tanstack/react-table';
 import { CSVReader } from 'react-papaparse';
-import { Table, Column } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { saveDataToItemTable } from '../api';
+import { Table, Column } from '@tanstack/react-table';
+import { useMemo } from 'react';
+import { calculateStatistics } from './utils';
+import './CsvPreviewTable.css';
 
 interface CsvPreviewTableProps {
-  onSave?: (data: any) => void;
+  onSave: (data: any) => void;
 }
 
-/**
- * CsvPreviewTable component allows users to drag and drop CSV files for previewing.
- * It displays the CSV data in a table format with pagination and supports virtual scrolling.
- * Users can view column types, missing value counts, and descriptive statistics.
- * Optionally, users can save the data to an existing Item table.
- */
 const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ onSave }) => {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
@@ -26,7 +22,9 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ onSave }) => {
 
     reader.onload = (event: ProgressEvent<FileReader>) => {
       const text = event.target?.result as string;
-      parseCsvData(text);
+      const parsedData = parseCSV(text);
+      setCsvData(parsedData.data);
+      setColumns(parsedData.columns);
     };
 
     reader.onerror = () => {
@@ -36,55 +34,17 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ onSave }) => {
     reader.readAsText(file);
   }, []);
 
-  const { getRootProps, getInputProps } = useDropzone({
-    onDrop,
-    accept: '.csv',
-  });
+  const { getRootProps, getInputProps } = useDropzone({ onDrop });
 
-  const parseCsvData = (csvText: string) => {
-    CSVReader.parse(csvText, {
-      complete: (results) => {
-        const { data } = results;
-        setCsvData(data.slice(0, 100)); // Show first 100 rows
-        setColumns(generateColumns(data));
-      },
-      header: true,
-    });
-  };
+  const tableInstance = useTable({
+    data: csvData,
+    columns,
+    initialState: { pageSize: 100 },
+  }, usePagination);
 
-  const generateColumns = (data: any[]): Column[] => {
-    if (data.length === 0) return [];
-    const headers = Object.keys(data[0]);
-    return headers.map((header) => ({
-      Header: header,
-      accessor: header,
-    }));
-  };
+  const { page, pageOptions, gotoPage, setPageSize } = tableInstance;
 
-  const { data: statsData, error: statsError } = useQuery('csvStats', () => calculateStatistics(csvData), {
-    enabled: csvData.length > 0,
-  });
-
-  const calculateStatistics = (data: any[]) => {
-    // Placeholder for statistics calculation logic
-    return {};
-  };
-
-  const { getTableProps, getTableBodyProps, headerGroups, page, prepareRow } = useTable(
-    {
-      columns,
-      data: csvData,
-    },
-    usePagination
-  );
-
-  const handleSave = () => {
-    if (onSave) {
-      onSave(csvData);
-    } else {
-      saveDataToItemTable(csvData);
-    }
-  };
+  const statistics = useMemo(() => calculateStatistics(csvData), [csvData]);
 
   return (
     <div className="csv-preview-table">
@@ -92,35 +52,60 @@ const CsvPreviewTable: React.FC<CsvPreviewTableProps> = ({ onSave }) => {
         <input {...getInputProps()} />
         <p>Drag 'n' drop a CSV file here, or click to select one</p>
       </div>
-      {statsError && <div className="error">Error calculating statistics: {statsError.message}</div>}
-      <Table {...getTableProps()}>
+      <table>
         <thead>
-          {headerGroups.map((headerGroup) => (
-            <tr {...headerGroup.getHeaderGroupProps()}>
-              {headerGroup.headers.map((column) => (
-                <th {...column.getHeaderProps()}>{column.render('Header')}</th>
-              ))}
-            </tr>
+          {columns.map(column => (
+            <th key={column.id}>{column.Header}</th>
           ))}
         </thead>
-        <tbody {...getTableBodyProps()}>
-          {page.map((row) => {
-            prepareRow(row);
+        <tbody>
+          {page.map(row => {
+            tableInstance.prepareRow(row);
             return (
-              <tr {...row.getRowProps()}>
-                {row.cells.map((cell) => (
-                  <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
+              <tr key={row.id}>
+                {row.cells.map(cell => (
+                  <td key={cell.id}>{cell.render('Cell')}</td>
                 ))}
               </tr>
             );
           })}
         </tbody>
-      </Table>
-      <button onClick={handleSave} className="save-button">
-        Save Data
-      </button>
+      </table>
+      <div className="pagination">
+        <button onClick={() => gotoPage(0)} disabled={!tableInstance.canPreviousPage}>First</button>
+        <button onClick={() => tableInstance.previousPage()} disabled={!tableInstance.canPreviousPage}>Previous</button>
+        <button onClick={() => tableInstance.nextPage()} disabled={!tableInstance.canNextPage}>Next</button>
+        <button onClick={() => gotoPage(pageOptions.length - 1)} disabled={!tableInstance.canNextPage}>Last</button>
+        <span>
+          Page{' '}
+          <strong>
+            {tableInstance.state.pageIndex + 1} of {pageOptions.length}
+          </strong>
+        </span>
+        <select
+          value={tableInstance.state.pageSize}
+          onChange={e => setPageSize(Number(e.target.value))}
+        >
+          {[10, 20, 50, 100].map(pageSize => (
+            <option key={pageSize} value={pageSize}>
+              Show {pageSize}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="statistics">
+        <h3>Descriptive Statistics</h3>
+        <pre>{JSON.stringify(statistics, null, 2)}</pre>
+      </div>
+      <button onClick={() => onSave(csvData)}>Save Data</button>
     </div>
   );
 };
 
 export default CsvPreviewTable;
+
+function parseCSV(text: string): { data: any[], columns: Column[] } {
+  // Implement CSV parsing logic here
+  // Return parsed data and columns
+  return { data: [], columns: [] };
+}
