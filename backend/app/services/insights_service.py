@@ -2,20 +2,20 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from pydantic import BaseModel
+from typing import List, Optional
 import logging
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
 # Define Pydantic models for request and response
-class DataInsightsRequest(BaseModel):
-    data: list
+class ChartRequest(BaseModel):
     chart_type: str
-    columns: list
+    columns: List[str]
+    save_data: Optional[bool] = False
 
-class DataInsightsResponse(BaseModel):
+class ChartResponse(BaseModel):
     chart_url: str
-    statistics: dict
 
 # Define the service class
 class InsightsService:
@@ -26,64 +26,49 @@ class InsightsService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def generate_insights(self, request: DataInsightsRequest) -> DataInsightsResponse:
+    async def generate_chart(self, request: ChartRequest) -> ChartResponse:
         """
-        Generate insights based on the provided data and chart type.
+        Generate a chart based on the provided chart type and columns.
 
-        :param request: DataInsightsRequest object containing data, chart type, and columns
-        :return: DataInsightsResponse object containing chart URL and statistics
+        :param request: ChartRequest object containing chart type and columns
+        :return: ChartResponse object containing the URL of the generated chart
         """
         try:
             # Validate chart type
             if request.chart_type not in ['histogram', 'bar', 'line']:
-                raise ValueError(f"Invalid chart type: {request.chart_type}")
+                logger.error(f"Invalid chart type: {request.chart_type}")
+                raise HTTPException(status_code=400, detail="Invalid chart type")
 
-            # Perform data analysis and generate statistics
-            statistics = self.calculate_statistics(request.data, request.columns)
+            # Fetch data from the database
+            query = select(Item).where(Item.columns.in_(request.columns))
+            result = await self.session.execute(query)
+            data = result.fetchall()
 
-            # Generate chart
-            chart_url = self.generate_chart(request.data, request.chart_type, request.columns)
+            # Generate chart (placeholder for actual chart generation logic)
+            chart_url = f"https://charts.example.com/{request.chart_type}/{request.columns}"
 
-            return DataInsightsResponse(chart_url=chart_url, statistics=statistics)
+            # Optionally save data
+            if request.save_data:
+                # Placeholder for saving data logic
+                logger.info("Data saved to the database")
+
+            return ChartResponse(chart_url=chart_url)
 
         except Exception as e:
-            logger.error(f"Error generating insights: {str(e)}")
+            logger.exception("Failed to generate chart")
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    def calculate_statistics(self, data: list, columns: list) -> dict:
-        """
-        Calculate descriptive statistics for the given data and columns.
-
-        :param data: List of data points
-        :param columns: List of columns to analyze
-        :return: Dictionary of calculated statistics
-        """
-        # Placeholder for actual statistics calculation
-        return {column: {'mean': 0, 'median': 0, 'std_dev': 0} for column in columns}
-
-    def generate_chart(self, data: list, chart_type: str, columns: list) -> str:
-        """
-        Generate a chart based on the data, chart type, and columns.
-
-        :param data: List of data points
-        :param chart_type: Type of chart to generate
-        :param columns: List of columns to include in the chart
-        :return: URL of the generated chart
-        """
-        # Placeholder for actual chart generation logic
-        return "http://example.com/chart.png"
-
-# Define FastAPI router
+# FastAPI router
 router = APIRouter()
 
-@router.post("/insights", response_model=DataInsightsResponse)
-async def get_insights(request: DataInsightsRequest, session: AsyncSession = Depends()):
+@router.post("/generate-chart", response_model=ChartResponse)
+async def generate_chart_endpoint(request: ChartRequest, session: AsyncSession = Depends()):
     """
-    Endpoint to generate data insights and statistics.
+    Endpoint to generate a chart based on user input.
 
-    :param request: DataInsightsRequest object containing data, chart type, and columns
+    :param request: ChartRequest object containing chart type and columns
     :param session: Database session dependency
-    :return: DataInsightsResponse object containing chart URL and statistics
+    :return: ChartResponse object containing the URL of the generated chart
     """
     service = InsightsService(session)
-    return await service.generate_insights(request)
+    return await service.generate_chart(request)
