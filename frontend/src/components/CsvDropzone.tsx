@@ -7,15 +7,17 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 interface CsvDropzoneProps {
-  onSave: (data: any[]) => void;
+  onSaveToggle: (data: any) => void;
 }
 
 /**
- * CsvDropzone component allows users to drag-and-drop CSV files for upload.
- * It parses the CSV file and calculates descriptive statistics.
- * Users can optionally save the data to an existing Item table.
+ * CsvDropzone component allows users to drag and drop CSV files for processing.
+ * It parses the CSV data, calculates descriptive statistics, and optionally saves the data.
+ *
+ * @param {CsvDropzoneProps} props - The properties for the component.
+ * @returns {JSX.Element} The rendered component.
  */
-const CsvDropzone: React.FC<CsvDropzoneProps> = ({ onSave }) => {
+const CsvDropzone: React.FC<CsvDropzoneProps> = ({ onSaveToggle }) => {
   const [csvData, setCsvData] = useState<any[]>([]);
   const navigate = useNavigate();
 
@@ -27,30 +29,30 @@ const CsvDropzone: React.FC<CsvDropzoneProps> = ({ onSave }) => {
       reader.onerror = () => toast.error('File reading has failed');
       reader.onload = () => {
         const text = reader.result as string;
-        const parsedData = parse(text, { header: true });
-        if (parsedData.errors.length) {
-          toast.error('Error parsing CSV file');
-        } else {
-          setCsvData(parsedData.data);
-        }
+        const parsedData = parse(text, { header: true }).data;
+        setCsvData(parsedData);
+        toast.success('File successfully uploaded');
       };
 
       reader.readAsText(file);
     });
   }, []);
 
-  const { mutate: saveData } = useMutation(
-    (data: any[]) => fetch('/api_v1/import', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    }),
+  const mutation = useMutation(
+    (data: any) => {
+      // Replace with actual API call
+      return fetch('/api_v1/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+    },
     {
       onSuccess: () => {
-        toast.success('Data saved successfully');
-        navigate('/items');
+        toast.success('Data successfully saved');
+        navigate('/');
       },
       onError: () => {
         toast.error('Failed to save data');
@@ -58,15 +60,24 @@ const CsvDropzone: React.FC<CsvDropzoneProps> = ({ onSave }) => {
     }
   );
 
-  const { getRootProps, getInputProps } = useDropzone({ onDrop });
+  const handleSaveToggle = () => {
+    mutation.mutate(csvData);
+    onSaveToggle(csvData);
+  };
+
+  const { getRootProps, getInputProps } = useDropzone({
+    onDrop,
+    accept: '.csv',
+  });
 
   return (
-    <div className="p-4 border-dashed border-2 border-gray-300 rounded-md" {...getRootProps()}>
+    <div {...getRootProps()} className="border-dashed border-2 border-gray-400 p-6 rounded-md">
       <input {...getInputProps()} />
       <p>Drag 'n' drop a CSV file here, or click to select one</p>
       <button
-        className="mt-4 bg-blue-500 text-white py-2 px-4 rounded"
-        onClick={() => saveData(csvData)}
+        type="button"
+        onClick={handleSaveToggle}
+        className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
       >
         Save Data
       </button>
