@@ -87,28 +87,28 @@ This plan was automatically generated from the Software Design Document.
 
 ### Implement scalable architecture for Architect
 
-**Description**: Address the need for a scalable and robust system architecture defined by the System Architect to ensure high performance and future growth capabilities
+**Description**: Address the need for a scalable and robust system architecture defined by the System Architect to ensure long-term system performance and reliability.
 **Priority**: high
 **Stakeholder**: System Architect
 **Source**: Stakeholders
 
 ### Develop user-centric features for Product Manager
 
-**Description**: Address the need for user-centric features and enhancements defined by the Product Manager to ensure increased user satisfaction and market competitiveness
+**Description**: Address the need for user-centric features defined by the Product Manager to ensure enhanced user satisfaction and market competitiveness.
 **Priority**: medium
 **Stakeholder**: Product Manager
 **Source**: Stakeholders
 
 ### Optimize codebase for Lead Developer
 
-**Description**: Address the need for an optimized and maintainable codebase defined by the Lead Full-Stack Developer to ensure efficient development processes and reduced technical debt
+**Description**: Address the need for an optimized and maintainable codebase defined by the Lead Full-Stack Developer to ensure efficient development and reduced technical debt.
 **Priority**: medium
 **Stakeholder**: Lead Full-Stack Developer
 **Source**: Stakeholders
 
 ### Enhance testing automation for QA Engineer
 
-**Description**: Address the need for enhanced testing automation defined by the QA Engineer to ensure higher test coverage and faster release cycles
+**Description**: Address the need for enhanced testing automation defined by the QA Engineer to ensure higher test coverage and faster release cycles.
 **Priority**: low
 **Stakeholder**: QA Engineer
 **Source**: Stakeholders
@@ -123,23 +123,35 @@ This plan was automatically generated from the Software Design Document.
 - Description: Develop the SaveToggle component which includes a checkbox and a button for bulk saving items. Ensure that a success toast message is displayed upon successful save.
 - Source: Key UI Components
 
+**Implement uploadCsv function**
+- Description: Develop the uploadCsv function to handle CSV file uploads and return a Promise of PreviewResponse.
+- Source: Frontend Service Integration
+
 **Add new router to api_v1**
-- Description: Integrate a new router into the api_v1 of the backend, including new services and middleware.
+- Description: Integrate a new router into the api_v1 backend, including new services and middleware.
 - Source: Deployment Strategy
 
 **Add /import route and components to frontend**
-- Description: Implement the /import route and its associated components in the frontend, and register the service layer.
+- Description: Develop and integrate the /import route and its components into the frontend application, and register the service layer.
 - Source: Deployment Strategy
 
 **Unit tests for UploadService.load_csv()**
-- Description: Develop unit tests for the UploadService.load_csv() function to ensure type inference and stats accuracy.
+- Description: Develop unit tests for the UploadService.load_csv() function to ensure type inference and stats accuracy are correct.
 - Source: Backend
 
 **API tests for CSV upload and insights generation**
-- Description: Create API tests to verify the upload functionality for small and large CSV files, insights generation, and the save flow.
+- Description: Create API tests to verify the functionality of uploading small and large CSV files, generating insights, and the save flow.
 - Source: Backend
 
 #### Medium Priority Tasks
+
+**Implement getInsights function**
+- Description: Create the getInsights function to retrieve insights based on uploadId and config, returning a Promise of ChartResponse.
+- Source: Frontend Service Integration
+
+**Implement saveRows function**
+- Description: Develop the saveRows function to save rows using the provided uploadId.
+- Source: Frontend Service Integration
 
 **Expose environment variables**
 - Description: Expose the environment variables UPLOAD_MAX_MB and UPLOAD_TTL_SEC with default values.
@@ -154,7 +166,7 @@ This plan was automatically generated from the Software Design Document.
 - Source: Frontend
 
 **Cypress E2E tests for frontend interactions**
-- Description: Develop Cypress end-to-end tests to validate drag-and-drop functionality, preview display, and row saving on the frontend.
+- Description: Develop Cypress end-to-end tests to validate drag-and-drop functionality, preview display, and saving rows on the frontend.
 - Source: Frontend
 
 ## MACHINE_READABLE_OUTLINE
@@ -258,6 +270,9 @@ This plan was automatically generated from the Software Design Document.
         "Return file metadata and preview data",
         "Implement file size and type restrictions",
         "Implement implement savetoggle ui component",
+        "Implement implement uploadcsv function",
+        "Implement implement getinsights function",
+        "Implement implement saverows function",
         "Implement add new router to api_v1",
         "Implement add /import route and components to frontend"
       ],
@@ -347,6 +362,9 @@ This plan was automatically generated from the Software Design Document.
       "type": "react-component",
       "requirements": [
         "Create UI component for implement savetoggle ui component",
+        "Create UI component for implement uploadcsv function",
+        "Create UI component for implement getinsights function",
+        "Create UI component for implement saverows function",
         "Create UI component for add new router to api_v1",
         "Create UI component for add /import route and components to frontend"
       ],
@@ -368,6 +386,9 @@ This plan was automatically generated from the Software Design Document.
       "type": "react-component",
       "requirements": [
         "Create UI component for implement savetoggle ui component",
+        "Create UI component for implement uploadcsv function",
+        "Create UI component for implement getinsights function",
+        "Create UI component for implement saverows function",
         "Create UI component for add new router to api_v1",
         "Create UI component for add /import route and components to frontend"
       ],
@@ -416,6 +437,9 @@ This plan was automatically generated from the Software Design Document.
         "Handle large datasets with pagination",
         "Show column headers and data types",
         "Create UI component for implement savetoggle ui component",
+        "Create UI component for implement uploadcsv function",
+        "Create UI component for implement getinsights function",
+        "Create UI component for implement saverows function",
         "Create UI component for add new router to api_v1",
         "Create UI component for add /import route and components to frontend"
       ],
@@ -467,6 +491,9 @@ This plan was automatically generated from the Software Design Document.
         "Implement histogram, bar, and line charts",
         "Allow user to select chart types and columns",
         "Create UI component for implement savetoggle ui component",
+        "Create UI component for implement uploadcsv function",
+        "Create UI component for implement getinsights function",
+        "Create UI component for implement saverows function",
         "Create UI component for add new router to api_v1",
         "Create UI component for add /import route and components to frontend"
       ],
@@ -512,6 +539,9 @@ This plan was automatically generated from the Software Design Document.
         "Implement histogram, bar, and line charts",
         "Allow user to select chart types and columns",
         "Create UI component for implement savetoggle ui component",
+        "Create UI component for implement uploadcsv function",
+        "Create UI component for implement getinsights function",
+        "Create UI component for implement saverows function",
         "Create UI component for add new router to api_v1",
         "Create UI component for add /import route and components to frontend"
       ],
