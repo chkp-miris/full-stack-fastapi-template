@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+import pandas as pd
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlmodel import SQLModel, Field
-import pandas as pd
+from typing import List, Optional
 import io
 import logging
 
@@ -11,70 +11,62 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define the SQLModel for the Item table
 class Item(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    description: str
+    value: float
 
-# Define the Pydantic model for CSV data
 class CSVData(BaseModel):
-    name: str
-    description: str
+    content: bytes
 
-# Initialize FastAPI router
-router = APIRouter()
-
-@router.post("/upload-csv/")
-async def upload_csv(file: UploadFile = File(...), session: AsyncSession = None):
+class CSVService:
     """
-    Endpoint to upload a CSV file, process it, and optionally save data to the database.
-
-    :param file: CSV file to be uploaded
-    :param session: Database session for saving data
-    :return: Descriptive statistics of the CSV data
+    Service class for processing CSV data.
+    Provides functionality to parse CSV content, calculate descriptive statistics,
+    and optionally save data to the database.
     """
-    try:
-        # Read CSV file into a pandas DataFrame
-        content = await file.read()
-        df = pd.read_csv(io.StringIO(content.decode('utf-8')))
 
-        # Calculate descriptive statistics
-        stats = df.describe().to_dict()
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
 
-        # Optionally save data to the database
-        if session:
-            for index, row in df.iterrows():
-                item = Item(name=row['name'], description=row['description'])
-                session.add(item)
-            await session.commit()
+    async def process_csv(self, csv_data: CSVData, save_to_db: bool = False) -> dict:
+        """
+        Process the CSV data, calculate descriptive statistics, and optionally save to the database.
 
-        return {"statistics": stats}
+        :param csv_data: CSVData object containing the CSV file content.
+        :param save_to_db: Boolean flag to determine if data should be saved to the database.
+        :return: A dictionary containing descriptive statistics.
+        """
+        try:
+            # Read CSV data into a DataFrame
+            df = pd.read_csv(io.BytesIO(csv_data.content))
+            logger.info("CSV data successfully read into DataFrame.")
 
-    except Exception as e:
-        logger.error(f"Error processing CSV file: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+            # Calculate descriptive statistics
+            stats = df.describe().to_dict()
+            logger.info("Descriptive statistics calculated.")
 
-# Example unit test
-async def test_upload_csv():
-    from fastapi.testclient import TestClient
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-    from sqlalchemy.orm import sessionmaker
+            # Optionally save data to the database
+            if save_to_db:
+                await self._save_to_database(df)
 
-    # Create a test database engine
-    DATABASE_URL = "sqlite+aiosqlite:///./test.db"
-    engine = create_async_engine(DATABASE_URL, echo=True)
-    async_session = sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
+            return stats
+        except Exception as e:
+            logger.error(f"Error processing CSV data: {e}")
+            raise
 
-    # Initialize FastAPI app and client
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
+    async def _save_to_database(self, df: pd.DataFrame):
+        """
+        Save the DataFrame to the database.
 
-    # Test CSV upload
-    with open("test.csv", "rb") as f:
-        response = client.post("/upload-csv/", files={"file": f})
-    assert response.status_code == 200
-    assert "statistics" in response.json()
+        :param df: DataFrame containing the data to be saved.
+        """
+        try:
+            items = [Item(name=row['name'], value=row['value']) for index, row in df.iterrows()]
+            self.db_session.add_all(items)
+            await self.db_session.commit()
+            logger.info("Data successfully saved to the database.")
+        except Exception as e:
+            logger.error(f"Error saving data to the database: {e}")
+            await self.db_session.rollback()
+            raise
